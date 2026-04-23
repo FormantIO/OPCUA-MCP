@@ -149,11 +149,11 @@ class OPCUAMCPServer {
                   type: "datetime"
                 },
                 num_values: {
-                  type: "int",
+                  type: "number",
                   description: "Number of values to read (default: unlimited)"
                 },
               },
-              required: ["node_id", "starttime", "endtime"]
+              required: ["node_id"]
             }
           },
           {
