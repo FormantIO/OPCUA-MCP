@@ -5,6 +5,7 @@ from typing import AsyncIterator
 import asyncio
 import os
 from typing import List, Dict, Any
+from datetime import datetime
 from opcua import ua
 from opcua.ua import NodeClass
 
@@ -45,6 +46,41 @@ def read_opcua_node(node_id: str, ctx: Context) -> str:
     node = client.get_node(node_id)
     value = node.get_value()  # Synchronous call to get node value
     return f"Node {node_id} value: {value}"
+
+# Tool: Read historical values of an OPC UA node
+@mcp.tool()
+def history_read_opcua_node(node_id: str,
+                            ctx: Context,
+                            start_time: datetime | None = None,
+                            end_time: datetime | None = None,
+                            num_values: int = 0) -> [dict]:
+    """
+    Read the historical values of a specific OPC UA node.
+
+    Parameters:
+        node_id (str): The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'.
+                       Example: 'ns=2;i=2'.
+        start_time (datetime): Start time.
+                               Example: '2026-04-22 18:50:00'
+        end_time (datetime): End time.
+                             Example: '2026-04-22 18:51:00'
+        num_values (int): Number of values to read (default: unlimited)
+
+    Returns:
+        [dict]: An array of values `{ "value": <value>, "timestamp": <timestamp>, "status": "Good" }`
+    """
+    client = ctx.request_context.lifespan_context["opcua_client"]
+    node = client.get_node(node_id)
+    values = node.read_raw_history(starttime=start_time, endtime=end_time, numvalues=num_values)
+    return [
+        {
+            "value": str(v.Value.Value),
+            "timestamp": str(v.SourceTimestamp),
+            "status": str(v.StatusCode.name)
+        }
+        for v in values
+    ]
+
 
 # Tool: Write a value to an OPC UA node
 @mcp.tool()

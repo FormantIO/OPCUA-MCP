@@ -5,6 +5,7 @@ An NPX-based Model Context Protocol (MCP) server for OPC UA operations. This ser
 ## Features
 
 - **Read OPC UA Nodes**: Read values from individual or multiple OPC UA nodes
+- **Read History OPC UA Node**: Read the historical values of a specific OPC UA node
 - **Write OPC UA Nodes**: Write values to individual or multiple OPC UA nodes  
 - **Browse Node Children**: Explore the OPC UA address space by browsing node children
 - **Call OPC UA Methods**: Execute methods on OPC UA objects with parameters
@@ -66,7 +67,27 @@ Read the value of a specific OPC UA node.
   "node_id": "ns=2;i=1"
 }
 ```
-### 2. write_opcua_node
+
+### 2. read_history_opcua_node
+
+Read the historical values of a specific OPC UA node.
+
+**Parameters:**
+- `node_id` (string): The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'
+- `start_time` (datetime)
+- `end_time` (datetime)
+- `num_values` (int): Number of values to read (default: unlimited)
+
+**Example:**
+```json
+{
+  "node_id": "ns=2;i=1",
+  "start_time": "2026-04-23 17:40:00",
+  "end_time": "2026-04-23 17:45:00"
+}
+```
+
+### 3. write_opcua_node
 
 Write a value to a specific OPC UA node.
 
@@ -82,7 +103,7 @@ Write a value to a specific OPC UA node.
 }
 ```
 
-### 3. browse_opcua_node_children
+### 4. browse_opcua_node_children
 
 Browse the children of a specific OPC UA node.
 
@@ -96,7 +117,7 @@ Browse the children of a specific OPC UA node.
 }
 ```
 
-### 4. read_multiple_opcua_nodes
+### 5. read_multiple_opcua_nodes
 
 Read values from multiple OPC UA nodes in a single request.
 
@@ -114,7 +135,7 @@ Read values from multiple OPC UA nodes in a single request.
 }
 ```
 
-### 5. write_multiple_opcua_nodes
+### 6. write_multiple_opcua_nodes
 
 Write values to multiple OPC UA nodes in a single request.
 
@@ -131,7 +152,7 @@ Write values to multiple OPC UA nodes in a single request.
 }
 ```
 
-### 6. call_opcua_method
+### 7. call_opcua_method
 
 Call a method on a specific OPC UA object node.
 
@@ -149,7 +170,7 @@ Call a method on a specific OPC UA object node.
 }
 ```
 
-### 7. get_all_variables
+### 8. get_all_variables
 
 Get all available variables from the OPC UA server, excluding those under the built-in 'Server' object.
 

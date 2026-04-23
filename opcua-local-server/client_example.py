@@ -6,6 +6,7 @@ This demonstrates how to connect to and interact with the server.
 
 import time
 import logging
+from datetime import datetime, timedelta
 from opcua import Client, ua
 
 
@@ -48,6 +49,12 @@ def main():
                 sensor_node = sensors.get_child([f"2:{sensor_name}"])
                 value = sensor_node.get_value()
                 print(f"  {sensor_name}: {value:.2f}")
+
+                endtime = datetime.utcnow()
+                starttime = endtime - timedelta(hours=1)
+                history_data = sensor_node.read_raw_history(starttime, endtime, 5)
+                for history_data_value in history_data:
+                        print(f"  {sensor_name}: {history_data_value.Value.Value:.2f} @ {history_data_value.SourceTimestamp}")
             except Exception as e:
                 print(f"  Error reading {sensor_name}: {e}")
         

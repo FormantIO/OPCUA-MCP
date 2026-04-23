@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 
 from opcua import Server, ua
@@ -73,6 +73,16 @@ class IndustrialControlSystem:
         
         logging.info("Address space setup completed")
     
+    def historize(self):
+        objects = self.server.get_objects_node()
+        industrial_system = objects.get_child("2:IndustrialControlSystem")
+        for child in industrial_system.get_children():
+            for variable in child.get_variables():
+                logging.info(f"historize {child.get_display_name().to_string()};{variable.get_display_name().to_string()}")
+                self.server.historize_node_data_change(variable, period=timedelta(minutes=10), count=0)
+
+        logging.info("historize completed")
+
     def _create_sensor_variables(self, parent_folder: Node):
         """Create sensor variables with proper data types and descriptions."""
         
@@ -268,7 +278,7 @@ class IndustrialControlSystem:
             # Add some calibration effect
             pass
         return True
-    
+
     def simulate_process(self):
         """Simulate industrial process behavior."""
         while self.running:
@@ -470,6 +480,7 @@ def main():
         
         # Start the server
         server.start()
+        industrial_system.historize()
         logging.info("OPC UA Server started at opc.tcp://0.0.0.0:4840/freeopcua/server/")
         logging.info("Server is running and ready for connections")
         

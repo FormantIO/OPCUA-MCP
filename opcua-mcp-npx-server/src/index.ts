@@ -19,8 +19,10 @@ import {
   StatusCodes,
   CallMethodResult,
   BrowseResult,
-  ReferenceDescription
+  ReferenceDescription,
+  HistoryData
 } from "node-opcua";
+import { DateTime } from "node-opcua-basic-types";
 
 // OPC UA client configuration
 const SERVER_URL = process.env.OPCUA_SERVER_URL || "opc.tcp://localhost:4840";
@@ -128,6 +130,30 @@ class OPCUAMCPServer {
                 }
               },
               required: ["node_id"]
+            }
+          },
+          {
+            name: "read_history_opcua_node",
+            description: "Read the historical values of a specific OPC UA node",
+            inputSchema: {
+              type: "object",
+              properties: {
+                node_id: {
+                  type: "string",
+                  description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=2'."
+                },
+                start_time: {
+                  type: "datetime"
+                },
+                end_time: {
+                  type: "datetime"
+                },
+                num_values: {
+                  type: "int",
+                  description: "Number of values to read (default: unlimited)"
+                },
+              },
+              required: ["node_id", "starttime", "endtime"]
             }
           },
           {
@@ -253,6 +279,9 @@ class OPCUAMCPServer {
           case "read_opcua_node":
             return await this.readOpcuaNode(args?.node_id as string);
 
+          case "read_history_opcua_node":
+            return await this.readHistoryOpcuaNode(args?.node_id as string, args?.start_time as DateTime, args?.end_time as DateTime, (args?.num_values as number) || 0);
+
           case "write_opcua_node":
             return await this.writeOpcuaNode(args?.node_id as string, args?.value as string);
 
@@ -309,6 +338,38 @@ class OPCUAMCPServer {
           {
             type: "text",
             text: `Node ${nodeId} value: ${value}`
+          }
+        ]
+      };
+    } catch (error) {
+      throw new Error(`Failed to read node ${nodeId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async readHistoryOpcuaNode(nodeId: string,
+                                     start: DateTime,
+                                     end: DateTime,
+                                     numValuesPerNode: number) {
+    if (!this.session) {
+      throw new Error("No OPC UA session available");
+    }
+
+    try {
+      const historyValues = await this.session.readHistoryValue([nodeId], start, end, {
+        numValuesPerNode
+      });
+      if (historyValues.length !== 1) {
+        throw new Error(`Read hisstory failed`);
+      }
+      if (historyValues[0].statusCode !== StatusCodes.Good) {
+        throw new Error(`Read hisstory failed with status: ${historyValues[0].statusCode.toString()}`);
+      }
+      const dataValues = (historyValues[0].historyData as HistoryData).dataValues;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${JSON.stringify(dataValues, null, 2)}`
           }
         ]
       };
