@@ -143,10 +143,10 @@ class OPCUAMCPServer {
                   description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=2'."
                 },
                 start_time: {
-                  type: "datetime"
+                  type: "string"
                 },
                 end_time: {
-                  type: "datetime"
+                  type: "string"
                 },
                 num_values: {
                   type: "number",
