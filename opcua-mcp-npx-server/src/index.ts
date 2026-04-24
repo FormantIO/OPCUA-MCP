@@ -116,23 +116,137 @@ class OPCUAMCPServer {
 
   private setupToolHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: [
-          {
-            name: "read_opcua_node",
-            description: "Read the value of a specific OPC UA node",
-            inputSchema: {
-              type: "object",
-              properties: {
-                node_id: {
-                  type: "string",
-                  description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=2'."
-                }
+      let tools = [
+        {
+          name: "read_opcua_node",
+          description: "Read the value of a specific OPC UA node",
+          inputSchema: {
+            type: "object",
+            properties: {
+              node_id: {
+                type: "string",
+                description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=2'."
+              }
+            },
+            required: ["node_id"]
+          }
+        },
+        {
+          name: "write_opcua_node",
+          description: "Write a value to a specific OPC UA node",
+          inputSchema: {
+            type: "object",
+            properties: {
+              node_id: {
+                type: "string",
+                description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=3'."
               },
-              required: ["node_id"]
-            }
-          },
-          {
+              value: {
+                type: "string",
+                description: "The value to write to the node. Will be converted based on node type."
+              }
+            },
+            required: ["node_id", "value"]
+          }
+        },
+        {
+          name: "browse_opcua_node_children",
+          description: "Browse the children of a specific OPC UA node",
+          inputSchema: {
+            type: "object",
+            properties: {
+              node_id: {
+                type: "string",
+                description: "The OPC UA node ID to browse (e.g., 'ns=0;i=85' for Objects folder)."
+              }
+            },
+            required: ["node_id"]
+          }
+        },
+        {
+          name: "read_multiple_opcua_nodes",
+          description: "Read the values of multiple OPC UA nodes in a single request",
+          inputSchema: {
+            type: "object",
+            properties: {
+              node_ids: {
+                type: "array",
+                items: {
+                  type: "string"
+                },
+                description: "A list of OPC UA node IDs to read (e.g., ['ns=2;i=2', 'ns=2;i=3'])."
+              }
+            },
+            required: ["node_ids"]
+          }
+        },
+        {
+          name: "write_multiple_opcua_nodes",
+          description: "Write values to multiple OPC UA nodes in a single request",
+          inputSchema: {
+            type: "object",
+            properties: {
+              nodes_to_write: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    node_id: {
+                      type: "string"
+                    },
+                    value: {
+                      type: "string"
+                    }
+                  },
+                  required: ["node_id", "value"]
+                },
+                description: "A list of objects containing 'node_id' and 'value'. Example: [{'node_id': 'ns=2;i=2', 'value': '10.5'}, {'node_id': 'ns=2;i=3', 'value': 'active'}]"
+              }
+            },
+            required: ["nodes_to_write"]
+          }
+        },
+        {
+          name: "call_opcua_method",
+          description: "Call a method on a specific OPC UA object node",
+          inputSchema: {
+            type: "object",
+            properties: {
+              object_node_id: {
+                type: "string",
+                description: "The OPC UA node ID of the object that contains the method. Example: 'ns=2;i=1' for the Methods folder."
+              },
+              method_node_id: {
+                type: "string",
+                description: "The OPC UA node ID of the method to call. Example: 'ns=2;i=2' for StartProduction method."
+              },
+              arguments: {
+                type: "array",
+                items: {
+                  type: "string"
+                },
+                description: "List of arguments to pass to the method. Arguments will be converted to appropriate OPC UA variants."
+              }
+            },
+            required: ["object_node_id", "method_node_id"]
+          }
+        },
+        {
+          name: "get_all_variables",
+          description: "Get all available variables from the OPC UA server, excluding those under the built-in 'Server' object",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            required: []
+          }
+        }
+      ] satisfies Tool[];
+
+      await this.ensureConnection();
+      if (this.session) {
+        const dataValue = await this.session.readVariableValue("ns=0;i=11193"); // AccessHistoryDataCapability
+        if (dataValue.statusCode === StatusCodes.Good && dataValue.value?.value === true) {
+          const t = {
             name: "read_history_opcua_node",
             description: "Read the historical values of a specific OPC UA node",
             inputSchema: {
@@ -155,118 +269,12 @@ class OPCUAMCPServer {
               },
               required: ["node_id"]
             }
-          },
-          {
-            name: "write_opcua_node",
-            description: "Write a value to a specific OPC UA node",
-            inputSchema: {
-              type: "object",
-              properties: {
-                node_id: {
-                  type: "string",
-                  description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=3'."
-                },
-                value: {
-                  type: "string",
-                  description: "The value to write to the node. Will be converted based on node type."
-                }
-              },
-              required: ["node_id", "value"]
-            }
-          },
-          {
-            name: "browse_opcua_node_children",
-            description: "Browse the children of a specific OPC UA node",
-            inputSchema: {
-              type: "object",
-              properties: {
-                node_id: {
-                  type: "string",
-                  description: "The OPC UA node ID to browse (e.g., 'ns=0;i=85' for Objects folder)."
-                }
-              },
-              required: ["node_id"]
-            }
-          },
-          {
-            name: "read_multiple_opcua_nodes",
-            description: "Read the values of multiple OPC UA nodes in a single request",
-            inputSchema: {
-              type: "object",
-              properties: {
-                node_ids: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  },
-                  description: "A list of OPC UA node IDs to read (e.g., ['ns=2;i=2', 'ns=2;i=3'])."
-                }
-              },
-              required: ["node_ids"]
-            }
-          },
-          {
-            name: "write_multiple_opcua_nodes",
-            description: "Write values to multiple OPC UA nodes in a single request",
-            inputSchema: {
-              type: "object",
-              properties: {
-                nodes_to_write: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      node_id: {
-                        type: "string"
-                      },
-                      value: {
-                        type: "string"
-                      }
-                    },
-                    required: ["node_id", "value"]
-                  },
-                  description: "A list of objects containing 'node_id' and 'value'. Example: [{'node_id': 'ns=2;i=2', 'value': '10.5'}, {'node_id': 'ns=2;i=3', 'value': 'active'}]"
-                }
-              },
-              required: ["nodes_to_write"]
-            }
-          },
-          {
-            name: "call_opcua_method",
-            description: "Call a method on a specific OPC UA object node",
-            inputSchema: {
-              type: "object",
-              properties: {
-                object_node_id: {
-                  type: "string",
-                  description: "The OPC UA node ID of the object that contains the method. Example: 'ns=2;i=1' for the Methods folder."
-                },
-                method_node_id: {
-                  type: "string",
-                  description: "The OPC UA node ID of the method to call. Example: 'ns=2;i=2' for StartProduction method."
-                },
-                arguments: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  },
-                  description: "List of arguments to pass to the method. Arguments will be converted to appropriate OPC UA variants."
-                }
-              },
-              required: ["object_node_id", "method_node_id"]
-            }
-          },
-          {
-            name: "get_all_variables",
-            description: "Get all available variables from the OPC UA server, excluding those under the built-in 'Server' object",
-            inputSchema: {
-              type: "object",
-              properties: {},
-              required: []
-            }
-          }
-        ] satisfies Tool[]
-      };
+          } satisfies Tool;
+          tools.push(t);
+        }
+      }
+
+      return { tools };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {

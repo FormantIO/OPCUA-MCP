@@ -74,6 +74,9 @@ class IndustrialControlSystem:
         logging.info("Address space setup completed")
     
     def historize(self):
+        accessHistoryDataCapability = self.server.get_node("ns=0;i=11193")
+        accessHistoryDataCapability.set_value(True)
+
         objects = self.server.get_objects_node()
         industrial_system = objects.get_child("2:IndustrialControlSystem")
         for child in industrial_system.get_children():
@@ -477,7 +480,7 @@ def main():
     try:
         # Setup the address space
         industrial_system.setup_address_space()
-        
+
         # Start the server
         server.start()
         industrial_system.historize()
