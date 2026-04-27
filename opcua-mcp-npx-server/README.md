@@ -5,7 +5,6 @@ An NPX-based Model Context Protocol (MCP) server for OPC UA operations. This ser
 ## Features
 
 - **Read OPC UA Nodes**: Read values from individual or multiple OPC UA nodes
-- **Read History OPC UA Node**: Read the historical values of a specific OPC UA node
 - **Write OPC UA Nodes**: Write values to individual or multiple OPC UA nodes  
 - **Browse Node Children**: Explore the OPC UA address space by browsing node children
 - **Call OPC UA Methods**: Execute methods on OPC UA objects with parameters
@@ -13,6 +12,8 @@ An NPX-based Model Context Protocol (MCP) server for OPC UA operations. This ser
 - **Get All Variables**: Discover all available variables in the OPC UA server address space
 - **Automatic Type Conversion**: Intelligent conversion of values based on node data types
 - **Connection Management**: Automatic connection handling with graceful disconnection
+- **Read History OPC UA Node**: Read the historical values of a specific OPC UA node (if supported by the server)
+- **Read Aggregate OPC UA Node**: Calculate the historical aggregates (if supported by the server)
 
 ## Installation & Usage
 
@@ -68,7 +69,105 @@ Read the value of a specific OPC UA node.
 }
 ```
 
-### 2. read_history_opcua_node
+### 2. write_opcua_node
+
+Write a value to a specific OPC UA node.
+
+**Parameters:**
+- `node_id` (string): The OPC UA node ID
+- `value` (string): The value to write (automatically converted to the correct type)
+
+**Example:**
+```json
+{
+  "node_id": "ns=2;i=2",
+  "value": "75.5"
+}
+```
+
+### 3. browse_opcua_node_children
+
+Browse the children of a specific OPC UA node.
+
+**Parameters:**
+- `node_id` (string): The OPC UA node ID to browse
+
+**Example:**
+```json
+{
+  "node_id": "ns=2;i=3"
+}
+```
+
+### 4. read_multiple_opcua_nodes
+
+Read values from multiple OPC UA nodes in a single request.
+
+**Parameters:**
+- `node_ids` (array): List of OPC UA node IDs to read
+
+**Example:**
+```json
+{
+  "node_ids": [
+    "ns=2;i=4", 
+    "ns=2;i=5", 
+    "ns=2;i=6"
+  ]
+}
+```
+
+### 5. write_multiple_opcua_nodes
+
+Write values to multiple OPC UA nodes in a single request.
+
+**Parameters:**
+- `nodes_to_write` (array): List of objects containing 'node_id' and 'value'
+
+**Example:**
+```json
+{
+  "nodes_to_write": [
+    {"node_id": "ns=2;i=7", "value": "50"},
+    {"node_id": "ns=2;i=8", "value": "true"}
+  ]
+}
+```
+
+### 6. call_opcua_method
+
+Call a method on a specific OPC UA object node.
+
+**Parameters:**
+- `object_node_id` (string): The OPC UA node ID of the object containing the method
+- `method_node_id` (string): The OPC UA node ID of the method to call
+- `arguments` (array, optional): List of arguments to pass to the method
+
+**Example:**
+```json
+{
+  "object_node_id": "ns=2;i=9",
+  "method_node_id": "ns=2;i=10",
+  "arguments": ["25.0", "high_quality"]
+}
+```
+
+### 7. get_all_variables
+
+Get all available variables from the OPC UA server, excluding those under the built-in 'Server' object.
+
+**Parameters:**
+- None required
+
+**Example:**
+```json
+{}
+```
+
+**Returns:**
+A comprehensive list of all variables with their properties including name, node ID, object ID, current value, data type, and description.
+
+### 8. read_history_opcua_node
 
 Read the historical values of a specific OPC UA node.
 
@@ -87,103 +186,27 @@ Read the historical values of a specific OPC UA node.
 }
 ```
 
-### 3. write_opcua_node
+### 9. read_aggregate_opcua_node
 
-Write a value to a specific OPC UA node.
+Calculate the historical aggregates over a defined time range, divided into smaller chunks defined by the `processing_interval` (in milliseconds). The server divides the [`start_time`, `end_time`] domain into these intervals, returning one aggregated value per interval.
 
 **Parameters:**
-- `node_id` (string): The OPC UA node ID
-- `value` (string): The value to write (automatically converted to the correct type)
+- `node_id` (string): The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'
+- `start_time` (datetime): Beginning of the retrieval
+- `end_time` (datetime): End of the retrieval (defaults to 'now')
+- `aggregate_function` (string): The specific formula, e.g. Average, Minimum, Maximum
+- `processing_interval` (number): The duration (ms) for each computed value. If set to 0, the server calculates a single aggregate value for the entire range.
 
 **Example:**
 ```json
 {
-  "node_id": "ns=2;i=2",
-  "value": "75.5"
+  "node_id": "ns=2;i=1",
+  "start_time": "2026-04-23 17:40:00",
+  "end_time": "2026-04-23 17:45:00",
+  "aggregate_function": "Average",
+  "processing_interval": "60000"
 }
 ```
-
-### 4. browse_opcua_node_children
-
-Browse the children of a specific OPC UA node.
-
-**Parameters:**
-- `node_id` (string): The OPC UA node ID to browse
-
-**Example:**
-```json
-{
-  "node_id": "ns=2;i=3"
-}
-```
-
-### 5. read_multiple_opcua_nodes
-
-Read values from multiple OPC UA nodes in a single request.
-
-**Parameters:**
-- `node_ids` (array): List of OPC UA node IDs to read
-
-**Example:**
-```json
-{
-  "node_ids": [
-    "ns=2;i=4", 
-    "ns=2;i=5", 
-    "ns=2;i=6"
-  ]
-}
-```
-
-### 6. write_multiple_opcua_nodes
-
-Write values to multiple OPC UA nodes in a single request.
-
-**Parameters:**
-- `nodes_to_write` (array): List of objects containing 'node_id' and 'value'
-
-**Example:**
-```json
-{
-  "nodes_to_write": [
-    {"node_id": "ns=2;i=7", "value": "50"},
-    {"node_id": "ns=2;i=8", "value": "true"}
-  ]
-}
-```
-
-### 7. call_opcua_method
-
-Call a method on a specific OPC UA object node.
-
-**Parameters:**
-- `object_node_id` (string): The OPC UA node ID of the object containing the method
-- `method_node_id` (string): The OPC UA node ID of the method to call
-- `arguments` (array, optional): List of arguments to pass to the method
-
-**Example:**
-```json
-{
-  "object_node_id": "ns=2;i=9",
-  "method_node_id": "ns=2;i=10",
-  "arguments": ["25.0", "high_quality"]
-}
-```
-
-### 8. get_all_variables
-
-Get all available variables from the OPC UA server, excluding those under the built-in 'Server' object.
-
-**Parameters:**
-- None required
-
-**Example:**
-```json
-{}
-```
-
-**Returns:**
-A comprehensive list of all variables with their properties including name, node ID, object ID, current value, data type, and description.
 
 ## Integration with Cursor/Claude
 
