@@ -367,10 +367,10 @@ class OPCUAMCPServer {
         numValuesPerNode
       });
       if (historyValues.length !== 1) {
-        throw new Error(`Read hisstory failed`);
+        throw new Error(`Read history failed`);
       }
       if (historyValues[0].statusCode !== StatusCodes.Good) {
-        throw new Error(`Read hisstory failed with status: ${historyValues[0].statusCode.toString()}`);
+        throw new Error(`Read history failed with status: ${historyValues[0].statusCode.toString()}`);
       }
       const dataValues = (historyValues[0].historyData as HistoryData).dataValues;
       return {
