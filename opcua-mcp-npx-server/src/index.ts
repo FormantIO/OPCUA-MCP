@@ -20,7 +20,8 @@ import {
   CallMethodResult,
   BrowseResult,
   ReferenceDescription,
-  HistoryData
+  HistoryData,
+  AggregateFunction,
 } from "node-opcua";
 import { DateTime } from "node-opcua-basic-types";
 
@@ -31,6 +32,7 @@ class OPCUAMCPServer {
   private server: Server;
   private opcuaClient: OPCUAClient | null = null;
   private session: ClientSession | null = null;
+  private aggregateFunctions: string[] = [];
 
   constructor() {
     this.server = new Server(
@@ -121,6 +123,38 @@ class OPCUAMCPServer {
       dataValue.statusCode === StatusCodes.Good &&
       dataValue.value?.value === true
     );
+  }
+
+  private async serverCapabilitiesAggregateFunctions(): Promise<string[]> {
+    await this.ensureConnection();
+    let aggregateFunctions: string[] = [];
+    try {
+      const browseResult = await this.session!.browse({
+        nodeId: "ns=0;i=2997", // AggregateFunctions
+        browseDirection: 0, // Forward
+        resultMask: 63, // All information (including BrowseName)
+      });
+      if (
+        browseResult.statusCode === StatusCodes.Good &&
+        browseResult.references
+      ) {
+        for (const reference of browseResult.references) {
+          // Map the string BrowseName to the AggregateFunction
+          if (reference.browseName.name) {
+            const name = reference.browseName.name.toString();
+            if (name in AggregateFunction) {
+              aggregateFunctions.push(name);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Error during serverCapabilitiesAggregateFunctions:",
+        error,
+      );
+    }
+    return aggregateFunctions;
   }
 
   private setupToolHandlers() {
@@ -281,6 +315,41 @@ class OPCUAMCPServer {
         tools.push(t);
       }
 
+      this.aggregateFunctions = await this.serverCapabilitiesAggregateFunctions();
+      if (this.aggregateFunctions.length > 0) {
+        const t = {
+          name: "read_aggregate_opcua_node",
+          description: "Calculate the historical aggregates over a defined time range, divided into smaller chunks defined by the `processing_interval` (in milliseconds). The server divides the [`start_time`, `end_time`] domain into these intervals, returning one aggregated value per interval",
+          inputSchema: {
+            type: "object",
+            properties: {
+              node_id: {
+                type: "string",
+                description: "The OPC UA node ID in the format 'ns=<namespace>;i=<identifier>'. Example: 'ns=2;i=2'."
+              },
+              start_time: {
+                type: "string",
+                description: "Beginning of the retrieval"
+              },
+              end_time: {
+                type: "string",
+                description: "End of the retrieval (defaults to 'now')"
+              },
+              aggregate_function: {
+                type: "string",
+                description: "The specific formula, one of: " + [...this.aggregateFunctions].join(", ")
+              },
+              processing_interval: {
+                type: "number",
+                description: "The duration (ms) for each computed value. If set to 0, the server calculates a single aggregate value for the entire range."
+              }
+            },
+            required: ["node_id", "start_time", "aggregate_function"]
+          }
+        } satisfies Tool;
+        tools.push(t);
+      }
+
       return { tools };
     });
 
@@ -300,6 +369,15 @@ class OPCUAMCPServer {
               args?.start_time as DateTime,
               args?.end_time as DateTime,
               (args?.num_values as number) || 0,
+            );
+
+          case "read_aggregate_opcua_node":
+            return await this.readAggregateOpcuaNode(
+              args?.node_id as string,
+              args?.start_time as DateTime,
+              (args?.end_time as DateTime) || new Date(),
+              args?.aggregate_function as string,
+              (args?.processing_interval as number) || 0,
             );
 
           case "write_opcua_node":
@@ -392,6 +470,47 @@ class OPCUAMCPServer {
         throw new Error(`Read history failed with status: ${historyValues[0].statusCode.toString()}`);
       }
       const dataValues = (historyValues[0].historyData as HistoryData).dataValues;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${JSON.stringify(dataValues, null, 2)}`
+          }
+        ]
+      };
+    } catch (error) {
+      throw new Error(`Failed to read node ${nodeId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async readAggregateOpcuaNode(
+    nodeId: string,
+    start: DateTime,
+    end: DateTime,
+    aggregate_fn: string,
+    processing_interval: number,
+  ) {
+    if (!this.session) {
+      throw new Error("No OPC UA session available");
+    }
+
+    if (!this.aggregateFunctions.includes(aggregate_fn)) {
+      throw new Error("Invalid aggregate function");
+    }
+
+    try {
+      const aggregateFn = AggregateFunction[aggregate_fn as keyof typeof AggregateFunction];
+      const historyValues = await this.session.readAggregateValue(
+        { nodeId },
+        start,
+        end,
+        aggregateFn,
+        processing_interval,
+      );
+      if (historyValues.statusCode !== StatusCodes.Good) {
+        throw new Error(`Read aggregate failed with status: ${historyValues.statusCode.toString()}`);
+      }
+      const dataValues = (historyValues.historyData as HistoryData).dataValues;
       return {
         content: [
           {
