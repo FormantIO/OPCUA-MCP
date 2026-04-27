@@ -38,7 +38,7 @@ class OPCUAMCPServer {
     this.server = new Server(
       {
         name: "opcua-mcp-npx-server",
-        version: "0.1.0",
+        version: "0.1.2",
       },
       {
         capabilities: {
