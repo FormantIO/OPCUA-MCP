@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "cryptography>=45.0.2",
+    "cryptography>=48.0.1",
     "httpx>=0.28.1",
     "mcp[cli]>=1.9.1",
     "opcua>=0.98.13",
